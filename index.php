@@ -74,7 +74,7 @@ function show_post( $ident )
 {
 	global $dbh;
 
-	$stmt = $dbh->prepare("SELECT `text` FROM `posts` WHERE `ident` = ?");
+	$stmt = $dbh->prepare("SELECT `text`,`mimetype` FROM `posts` WHERE `ident` = ?");
 	if( !$stmt )
 	{
 		die( 'mysql error' );
@@ -83,12 +83,13 @@ function show_post( $ident )
 	$stmt->bind_param('s', $ident );
 	$stmt->execute();
 	$stmt->store_result();
-	$stmt->bind_result( $content );
+	$stmt->bind_result( $content, $mimetype );
 
 	if( $stmt->num_rows == 1 )
 	{
 		$stmt->fetch();
-		header("Content-Type: text/plain; charset=utf-8");
+		// header("Content-Type: text/plain; charset=utf-8");
+		header("Content-Type: $mimetype");
 		require(TPLDIR.'post.php');
 		return;
 	}
@@ -143,10 +144,19 @@ function do_post()
 		return;
 	}
 
+	if( empty( $_POST['mimetype']) || substr($_POST['mimetype'], 0, 6) != 'image/')
+	{
+		$mimetype='text/plain; charset=utf-8';
+	}
+	else
+	{
+		$mimetype=$_POST['mimetype'];
+	}
+
 	// it's OK now, let's post it
 	$ident = generate_ident();
-	$stmt = $dbh->prepare("INSERT INTO `posts` SET `ident`= ?, `ip`=?, `date`=NOW(), `text`=?, `expires` = TIMESTAMPADD( SECOND, ?, NOW())");
-	$stmt->bind_param('sssi', $ident, $_SERVER['REMOTE_ADDR'], $_POST['content'], $ttl );
+	$stmt = $dbh->prepare("INSERT INTO `posts` SET `ident`= ?, `ip`=?, `date`=NOW(), `text`=?, `expires` = TIMESTAMPADD( SECOND, ?, NOW()), `mimetype`=?");
+	$stmt->bind_param('sssis', $ident, $_SERVER['REMOTE_ADDR'], $_POST['content'], $ttl, $mimetype );
 	$stmt->execute();
 
 	header("Location: ".BASEURL."p/".$ident);
